@@ -7,6 +7,7 @@ Sistem Informasi Aset Keuskupan — aplikasi Next.js untuk registrasi aset, mast
 ```bash
 npm install
 cp .env.example .env   # sesuaikan DATABASE_URL
+npm run db:generate
 npm run db:migrate
 npm run db:seed
 npm run dev

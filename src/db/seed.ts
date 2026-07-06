@@ -339,7 +339,7 @@ async function seedUsers() {
   const roleIdByCode = new Map(existingRoles.map((role) => [role.code, role.id]));
   const unitIdByCode = new Map(existingUnits.map((unit) => [unit.code, unit.id]));
   const badanHukumIdByName = new Map(existingBadanHukums.map((badanHukum) => [badanHukum.name, badanHukum.id]));
-  const passwordHash = hashPassword("ChangeMe123!");
+  const passwordHash = hashPassword("password");
 
   for (const seed of userSeeds) {
     const roleId = roleIdByCode.get(seed.roleCode);
