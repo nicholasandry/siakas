@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 :root {
   --background: 210 40% 98%;
@@ -19,8 +19,8 @@
   --input: 214.3 31.8% 91.4%;
   --ring: 176 72% 18%;
   --radius: 1rem;
-  --font-body: var(--font-inter), "Segoe UI", sans-serif;
-  --font-display-family: var(--font-inter), "Segoe UI", sans-serif;
+  --font-body: "Segoe UI", Inter, Arial, sans-serif;
+  --font-display-family: "Segoe UI", Inter, Arial, sans-serif;
 }
 
 @theme inline {
@@ -48,7 +48,6 @@
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 
-  --shadow-glow: 0 18px 60px rgba(15, 23, 42, 0.12);
 }
 
 @layer base {
@@ -84,4 +83,13 @@
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Force hide all scrollbars for sidebar containers and elements inside them */
+aside, aside *, .no-scrollbar {
+  -ms-overflow-style: none !important; /* IE/Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+aside::-webkit-scrollbar, aside *::-webkit-scrollbar, .no-scrollbar::-webkit-scrollbar {
+  display: none !important; /* Chrome/Safari/Opera */
 }

@@ -29,7 +29,7 @@ export function CreateUnitDialog({ action, parentOptions, badanHukumOptions, keu
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-slate-950 px-6 text-sm font-medium text-white transition-colors hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30"
+        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white transition-colors hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30"
       >
         <Plus className="h-4 w-4" />
         Tambah unit
@@ -39,7 +39,6 @@ export function CreateUnitDialog({ action, parentOptions, badanHukumOptions, keu
         open={open}
         onOpenChange={setOpen}
         title="Tambah unit baru"
-        description="Isi semua field wajib sesuai struktur organisasi Keuskupan Surabaya."
       >
         <UnitForm
           action={action}

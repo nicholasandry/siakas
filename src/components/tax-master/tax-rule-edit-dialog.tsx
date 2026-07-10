@@ -32,10 +32,10 @@ export function TaxRuleEditDialog({ action, groupId, rule }: TaxRuleEditDialogPr
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+        className="inline-flex items-center justify-center rounded-md border border-slate-200 p-1.5 text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-sm"
+        title="Edit Aturan Pajak"
       >
-        <Pencil className="h-3.5 w-3.5" />
-        Edit
+        <Pencil className="h-4 w-4" />
       </button>
 
       <Dialog open={open} onOpenChange={setOpen} title={`Edit aturan ${rule.taxYear}`} description="Perubahan aturan hanya memengaruhi perhitungan baru.">

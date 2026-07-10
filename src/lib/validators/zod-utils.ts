@@ -5,11 +5,7 @@ export function valuesOf<const T extends readonly { value: string }[]>(options: 
 }
 
 export function optionalTrimmedString() {
-  return z.union([z.string(), z.undefined()]).transform((value) => {
-    if (value === undefined) {
-      return null;
-    }
-
+  return z.preprocess((value) => value ?? "", z.string()).transform((value) => {
     const trimmed = value.trim();
     return trimmed.length === 0 ? null : trimmed;
   });

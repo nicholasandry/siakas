@@ -54,7 +54,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
       <div className="flex min-h-full items-end justify-center p-4 sm:items-center sm:p-6">
         <div
           role="document"
-          className="flex max-h-[min(90vh,900px)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/80 bg-white shadow-glow"
+          className="flex max-h-[min(90vh,900px)] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
@@ -71,7 +71,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30"
               aria-label="Tutup dialog"
             >
               <X className="h-5 w-5" />

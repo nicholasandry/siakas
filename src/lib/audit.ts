@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 
 import { db } from "@/db";
@@ -35,6 +35,8 @@ export type AuditLogFilters = {
   actorUserId?: string;
   dateFrom?: string;
   dateTo?: string;
+  q?: string;
+  sort?: "created-desc" | "created-asc" | "actor-asc" | "action-asc" | "entity-asc";
   limit?: number;
   offset?: number;
 };
@@ -131,6 +133,31 @@ export async function listAuditLogs(filters: AuditLogFilters = {}): Promise<Audi
     conditions.push(lte(auditLogs.createdAt, new Date(`${filters.dateTo}T23:59:59.999`)));
   }
 
+  if (filters.q?.trim()) {
+    const pattern = `%${filters.q.trim()}%`;
+    conditions.push(
+      or(
+        ilike(auditLogs.action, pattern),
+        ilike(auditLogs.entity, pattern),
+        ilike(auditLogs.entityId, pattern),
+        ilike(auditLogs.ipAddress, pattern),
+        ilike(users.name, pattern),
+        ilike(users.email, pattern)
+      )
+    );
+  }
+
+  const orderBy =
+    filters.sort === "created-asc"
+      ? [asc(auditLogs.createdAt)]
+      : filters.sort === "actor-asc"
+        ? [asc(users.name), desc(auditLogs.createdAt)]
+        : filters.sort === "action-asc"
+          ? [asc(auditLogs.action), desc(auditLogs.createdAt)]
+          : filters.sort === "entity-asc"
+            ? [asc(auditLogs.entity), desc(auditLogs.createdAt)]
+            : [desc(auditLogs.createdAt)];
+
   const query = db
     .select({
       id: auditLogs.id,
@@ -147,7 +174,7 @@ export async function listAuditLogs(filters: AuditLogFilters = {}): Promise<Audi
     })
     .from(auditLogs)
     .leftJoin(users, eq(auditLogs.actorUserId, users.id))
-    .orderBy(desc(auditLogs.createdAt))
+    .orderBy(...orderBy)
     .limit(limit)
     .offset(offset);
 
@@ -158,7 +185,7 @@ export async function listAuditLogs(filters: AuditLogFilters = {}): Promise<Audi
   return query;
 }
 
-export async function countAuditLogs(filters: Pick<AuditLogFilters, "action" | "entity" | "actorUserId" | "dateFrom" | "dateTo"> = {}) {
+export async function countAuditLogs(filters: Pick<AuditLogFilters, "action" | "entity" | "actorUserId" | "dateFrom" | "dateTo" | "q"> = {}) {
   const conditions = [];
 
   if (filters.action) {
@@ -181,7 +208,21 @@ export async function countAuditLogs(filters: Pick<AuditLogFilters, "action" | "
     conditions.push(lte(auditLogs.createdAt, new Date(`${filters.dateTo}T23:59:59.999`)));
   }
 
-  const query = db.select({ count: sql<number>`count(*)::int` }).from(auditLogs);
+  if (filters.q?.trim()) {
+    const pattern = `%${filters.q.trim()}%`;
+    conditions.push(
+      or(
+        ilike(auditLogs.action, pattern),
+        ilike(auditLogs.entity, pattern),
+        ilike(auditLogs.entityId, pattern),
+        ilike(auditLogs.ipAddress, pattern),
+        ilike(users.name, pattern),
+        ilike(users.email, pattern)
+      )
+    );
+  }
+
+  const query = db.select({ count: sql<number>`count(*)::int` }).from(auditLogs).leftJoin(users, eq(auditLogs.actorUserId, users.id));
 
   if (conditions.length > 0) {
     const [row] = await query.where(and(...conditions));

@@ -11,7 +11,8 @@ Jalankan seed terlebih dahulu: `npm run db:seed`
 | Super Admin | `superadmin@siakas.local` | Akses penuh | Semua modul, RBAC, audit, tax master |
 | Admin Keuskupan | `keuskupan@siakas.local` | Unit keuskupan | Lihat/edit unit dalam scope, aset |
 | Admin Paroki | `paroki@siakas.local` | Paroki Katedral + turunan | Hanya data paroki; tidak bisa RBAC |
-| Admin Badan | `badan@siakas.local` | Badan hukum yayasan contoh | Badan hukum + aset badan hukum |
+| Admin Bad
+an | `badan@siakas.local` | Badan hukum yayasan contoh | Badan hukum + aset badan hukum |
 | Admin Aset | `aset@siakas.local` | Semua aset (role khusus) | CRUD aset, baca master pajak |
 
 ## Checklist superadmin

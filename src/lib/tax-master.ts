@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { taxAssetDepreciation, taxDepreciationGroups, taxDepreciationRules } from "@/db/schema";
+import { assets, taxAssetDepreciation, taxDepreciationGroups, taxDepreciationRules } from "@/db/schema";
 import type { DepreciationGroupInput, DepreciationRuleInput } from "@/lib/depreciation";
+import { generateDepreciationSchedule } from "@/lib/depreciation";
 
 export type TaxGroupFormInput = {
   code: string;
@@ -126,6 +127,9 @@ export async function getTaxDepreciationRule(id: string) {
 
 export async function createTaxDepreciationRule(input: TaxRuleFormInput) {
   const [row] = await db.insert(taxDepreciationRules).values(input).returning();
+  if (row) {
+    await recalculateAffectedAssetsDepreciation(row.groupId, new Date(row.effectiveFrom));
+  }
   return row;
 }
 
@@ -136,6 +140,9 @@ export async function updateTaxDepreciationRule(id: string, input: TaxRuleFormIn
     .where(eq(taxDepreciationRules.id, id))
     .returning();
 
+  if (row) {
+    await recalculateAffectedAssetsDepreciation(row.groupId, new Date(row.effectiveFrom));
+  }
   return row ?? null;
 }
 
@@ -146,5 +153,133 @@ export async function deactivateTaxDepreciationRule(id: string) {
     .where(eq(taxDepreciationRules.id, id))
     .returning();
 
+  if (row) {
+    await recalculateAffectedAssetsDepreciation(row.groupId, new Date(row.effectiveFrom));
+  }
   return row ?? null;
+}
+
+export async function recalculateAffectedAssetsDepreciation(groupId: string, effectiveFromDate: Date) {
+  const effectiveYear = effectiveFromDate.getFullYear();
+
+  // 1. Dapatkan daftar assetId unik yang menggunakan kelompok depresiasi ini
+  const affected = await db
+    .select({ assetId: taxAssetDepreciation.assetId })
+    .from(taxAssetDepreciation)
+    .where(eq(taxAssetDepreciation.depreciationGroupId, groupId))
+    .groupBy(taxAssetDepreciation.assetId);
+
+  // 2. Dapatkan kelompok depresiasi
+  const group = await getTaxDepreciationGroup(groupId);
+  if (!group) return;
+
+  // 3. Untuk setiap aset, lakukan re-generate jadwal secara prospektif
+  for (const item of affected) {
+    const assetId = item.assetId;
+
+    // Dapatkan data aset asli
+    const asset = await db
+      .select({
+        acquisitionValue: assets.acquisitionValue,
+        acquisitionDate: assets.acquisitionDate,
+      })
+      .from(assets)
+      .where(eq(assets.id, assetId))
+      .limit(1)
+      .then((rows) => rows[0] ?? null);
+
+    if (!asset || !asset.acquisitionValue || !asset.acquisitionDate) {
+      continue;
+    }
+
+    const acqValue = Number(asset.acquisitionValue) || 0;
+    const acqYear = new Date(asset.acquisitionDate).getFullYear();
+    if (acqValue <= 0 || isNaN(acqYear)) {
+      continue;
+    }
+
+    const startFromYear = Math.max(effectiveYear, acqYear);
+
+    // Ambil data tahun sebelumnya jika kalkulasi prospektif
+    let baseBookValue: number | null = null;
+    let baseAccumulated: number | null = null;
+
+    if (startFromYear > acqYear) {
+      const previousYearRecord = await db
+        .select()
+        .from(taxAssetDepreciation)
+        .where(and(eq(taxAssetDepreciation.assetId, assetId), eq(taxAssetDepreciation.taxYear, startFromYear - 1)))
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
+
+      if (previousYearRecord) {
+        baseBookValue = Number(previousYearRecord.bookValue);
+        baseAccumulated = Number(previousYearRecord.accumulatedDepreciation);
+      }
+    }
+
+    // Hapus data penyusutan dari startFromYear ke depan
+    await db
+      .delete(taxAssetDepreciation)
+      .where(and(eq(taxAssetDepreciation.assetId, assetId), gte(taxAssetDepreciation.taxYear, startFromYear)));
+
+    // Dapatkan rule penyusutan aktif untuk tahun startFromYear
+    const exactYearRule = await db
+      .select()
+      .from(taxDepreciationRules)
+      .where(
+        and(
+          eq(taxDepreciationRules.groupId, groupId),
+          eq(taxDepreciationRules.taxYear, startFromYear),
+          eq(taxDepreciationRules.isActive, true)
+        )
+      )
+      .orderBy(desc(taxDepreciationRules.effectiveFrom), desc(taxDepreciationRules.updatedAt))
+      .limit(1)
+      .then((rows) => rows[0] ?? null);
+
+    const rule =
+      exactYearRule ||
+      (await db
+        .select()
+        .from(taxDepreciationRules)
+        .where(and(eq(taxDepreciationRules.groupId, groupId), eq(taxDepreciationRules.isActive, true)))
+        .orderBy(desc(taxDepreciationRules.taxYear), desc(taxDepreciationRules.effectiveFrom), desc(taxDepreciationRules.updatedAt))
+        .limit(1)
+        .then((rows) => rows[0] ?? null));
+
+    // Generate jadwal baru
+    const schedule = generateDepreciationSchedule(
+      acqValue,
+      toDepreciationGroupInput(group),
+      rule ? toDepreciationRuleInput(rule) : null,
+      acqYear,
+      startFromYear,
+      baseBookValue,
+      baseAccumulated
+    );
+
+    // Simpan jadwal baru
+    if (schedule.length > 0) {
+      await db.insert(taxAssetDepreciation).values(
+        schedule.map((item) => ({
+          assetId,
+          depreciationGroupId: item.depreciationGroupId,
+          ruleId: item.ruleId,
+          acquisitionValue: item.acquisitionValue,
+          residualValue: item.residualValue,
+          depreciableBase: item.depreciableBase,
+          annualDepreciation: item.annualDepreciation,
+          accumulatedDepreciation: item.accumulatedDepreciation,
+          bookValue: item.bookValue,
+          startDate: item.startDate,
+          endDate: item.endDate,
+          status: item.status,
+          calculationMethod: item.calculationMethod,
+          taxYear: item.taxYear,
+          notes: item.notes,
+        }))
+      );
+    }
+  }
 }

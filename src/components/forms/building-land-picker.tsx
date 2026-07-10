@@ -2,7 +2,7 @@
 
 type LandOption = {
   id: string;
-  code?: string;
+  code?: string | null;
   name: string;
 };
 

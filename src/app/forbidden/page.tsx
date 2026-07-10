@@ -23,23 +23,23 @@ export default async function ForbiddenPage({ searchParams }: { searchParams: Pr
 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg items-center px-6 py-12">
-      <div className="w-full rounded-3xl border border-white/80 bg-white/90 p-8 text-center shadow-glow backdrop-blur">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-700">
+      <div className="w-full rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-700">
           <ShieldX className="h-7 w-7" />
         </div>
-        <h1 className="font-display text-3xl font-semibold text-slate-950">Akses ditolak</h1>
+        <h1 className="text-xl font-semibold text-slate-950">Akses ditolak</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">{message}</p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Link
             href="/dashboard"
-            className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white hover:bg-emerald-900"
+            className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800"
           >
             Ke dashboard
           </Link>
           <form action="/api/logout" method="post" className="inline-flex">
             <button
               type="submit"
-              className="inline-flex h-11 w-full items-center justify-center rounded-full border border-slate-200 px-6 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
+              className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
             >
               Ganti akun
             </button>

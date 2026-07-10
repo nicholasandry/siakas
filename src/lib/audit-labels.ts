@@ -6,6 +6,8 @@ export const auditEntityLabels: Record<string, string> = {
   system: "Sistem",
   server_action: "Server Action",
   unit: "Unit",
+  asset_location: "Lokasi Aset",
+  asset_disposal_lookup_option: "Lookup Disposal Aset",
   badan_hukum: "Badan Hukum",
   asset: "Aset",
   user: "Pengguna",

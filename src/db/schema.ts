@@ -1,8 +1,11 @@
 import {
   boolean,
+  bigint,
+  check,
   date,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   foreignKey,
@@ -13,6 +16,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const roles = pgTable(
   "roles",
@@ -114,6 +118,92 @@ export const badanHukums = pgTable(
   ]
 );
 
+export const assetLocations = pgTable(
+  "asset_locations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    unitId: uuid("unit_id")
+      .notNull()
+      .references(() => units.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    code: varchar("code", { length: 64 }),
+    locationKind: varchar("location_kind", { length: 32 }).notNull().default("ruang"),
+    description: text("description"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("asset_locations_unit_name_idx").on(table.unitId, table.name),
+    index("asset_locations_unit_idx").on(table.unitId),
+  ]
+);
+
+export const assetDisposalLookupOptions = pgTable(
+  "asset_disposal_lookup_options",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    category: varchar("category", { length: 64 }).notNull(),
+    code: varchar("code", { length: 64 }).notNull(),
+    label: varchar("label", { length: 160 }).notNull(),
+    description: text("description"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    isSystem: boolean("is_system").notNull().default(false),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("asset_disposal_lookup_options_category_code_idx").on(table.category, table.code),
+    index("asset_disposal_lookup_options_category_idx").on(table.category),
+  ]
+);
+
+export const assetStatusOptions = pgTable(
+  "asset_status_options",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    code: varchar("code", { length: 64 }).notNull(),
+    label: varchar("label", { length: 160 }).notNull(),
+    description: text("description"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    isSystem: boolean("is_system").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("asset_status_options_code_idx").on(table.code),
+    index("asset_status_options_active_idx").on(table.isActive),
+  ]
+);
+
+export const assetCategoryOptions = pgTable(
+  "asset_category_options",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    assetType: varchar("asset_type", { length: 32 }).notNull(),
+    code: varchar("code", { length: 64 }).notNull(),
+    label: varchar("label", { length: 191 }).notNull(),
+    depreciationGroupCode: varchar("depreciation_group_code", { length: 64 }).notNull(),
+    depreciationGroupLabel: varchar("depreciation_group_label", { length: 64 }),
+    usefulLifeYears: integer("useful_life_years").notNull(),
+    ratePercent: numeric("rate_percent", { precision: 6, scale: 2 }).notNull().default("0"),
+    examples: jsonb("examples").$type<string[]>(),
+    allowedTypes: jsonb("allowed_types").$type<string[]>(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    isSystem: boolean("is_system").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("asset_category_options_type_code_idx").on(table.assetType, table.code),
+    index("asset_category_options_type_idx").on(table.assetType),
+  ]
+);
+
 export const users = pgTable(
   "users",
   {
@@ -146,12 +236,14 @@ export const assets = pgTable(
     ownershipLevel: varchar("ownership_level", { length: 32 }).notNull(),
     unitId: uuid("unit_id").references(() => units.id, { onDelete: "set null" }),
     badanHukumId: uuid("badan_hukum_id").references(() => badanHukums.id, { onDelete: "set null" }),
+    locationId: uuid("location_id").references(() => assetLocations.id, { onDelete: "set null" }),
     acquisitionDate: date("acquisition_date"),
     acquisitionValue: numeric("acquisition_value", { precision: 18, scale: 2 }),
     legalStatus: varchar("legal_status", { length: 64 }),
     ownerName: varchar("owner_name", { length: 191 }),
     condition: varchar("condition", { length: 64 }),
     status: varchar("status", { length: 32 }).notNull().default("active"),
+    loanedTo: varchar("loaned_to", { length: 191 }),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -175,6 +267,215 @@ export const assetAttachments = pgTable(
   },
   (table) => [
     uniqueIndex("asset_attachments_asset_idx").on(table.assetId, table.filePath),
+  ]
+);
+
+export const assetDisposals = pgTable(
+  "asset_disposals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "restrict" }),
+    organizationId: uuid("organization_id").references(() => units.id, { onDelete: "set null" }),
+    disposalReasonType: varchar("disposal_reason_type", { length: 64 }).notNull(),
+    disposalMethod: varchar("disposal_method", { length: 64 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull().default("DRAFT"),
+    isStillUsed: boolean("is_still_used").notNull().default(false),
+    physicalCondition: varchar("physical_condition", { length: 64 }).notNull(),
+    requestedByUserId: uuid("requested_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    reviewedByUserId: uuid("reviewed_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    approvedByUserId: uuid("approved_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    completedByUserId: uuid("completed_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    requestedAt: date("requested_at").notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    effectiveDisposalDate: date("effective_disposal_date").notNull(),
+    disposalNote: text("disposal_note").notNull(),
+    rejectionReason: text("rejection_reason"),
+    acquisitionValue: bigint("acquisition_value", { mode: "number" }).notNull().default(0),
+    accumulatedDepreciationValue: bigint("accumulated_depreciation_value", { mode: "number" }).notNull().default(0),
+    bookValueAtDisposal: bigint("book_value_at_disposal", { mode: "number" }).notNull().default(0),
+    nextReviewDate: date("next_review_date"),
+    evaluationNote: text("evaluation_note"),
+    saleDate: date("sale_date"),
+    buyerName: varchar("buyer_name", { length: 191 }),
+    buyerType: varchar("buyer_type", { length: 64 }),
+    saleGrossAmount: bigint("sale_gross_amount", { mode: "number" }),
+    saleCostAmount: bigint("sale_cost_amount", { mode: "number" }).notNull().default(0),
+    saleNetAmount: bigint("sale_net_amount", { mode: "number" }),
+    salePaymentMethod: varchar("sale_payment_method", { length: 64 }),
+    saleReceivingAccountId: varchar("sale_receiving_account_id", { length: 128 }),
+    saleProofFileId: text("sale_proof_file_id"),
+    saleReceiptFileId: text("sale_receipt_file_id"),
+    disposalGainLossAmount: bigint("disposal_gain_loss_amount", { mode: "number" }),
+    disposalGainLossType: varchar("disposal_gain_loss_type", { length: 32 }),
+    recipientName: varchar("recipient_name", { length: 191 }),
+    donationRecipientKind: varchar("donation_recipient_kind", { length: 32 }),
+    recipientUnitId: uuid("recipient_unit_id").references(() => units.id, { onDelete: "set null" }),
+    donationDate: date("donation_date"),
+    donationPurpose: text("donation_purpose"),
+    handoverDocumentFileId: text("handover_document_file_id"),
+    exchangePartnerName: varchar("exchange_partner_name", { length: 191 }),
+    exchangeDate: date("exchange_date"),
+    oldAssetAgreedValue: bigint("old_asset_agreed_value", { mode: "number" }),
+    newAssetAgreedValue: bigint("new_asset_agreed_value", { mode: "number" }),
+    cashPaidAmount: bigint("cash_paid_amount", { mode: "number" }).notNull().default(0),
+    cashReceivedAmount: bigint("cash_received_amount", { mode: "number" }).notNull().default(0),
+    replacementAssetId: uuid("replacement_asset_id").references(() => assets.id, { onDelete: "set null" }),
+    exchangeAgreementFileId: text("exchange_agreement_file_id"),
+    legalDocumentFileId: text("legal_document_file_id"),
+    lostDate: date("lost_date"),
+    lastKnownLocation: text("last_known_location"),
+    lossChronology: text("loss_chronology"),
+    lastResponsiblePerson: varchar("last_responsible_person", { length: 191 }),
+    lossReportNumber: varchar("loss_report_number", { length: 100 }),
+    lossReportFileId: text("loss_report_file_id"),
+    policeReportFileId: text("police_report_file_id"),
+    hasInsuranceOrCompensation: boolean("has_insurance_or_compensation").notNull().default(false),
+    compensationAmount: bigint("compensation_amount", { mode: "number" }),
+    compensationReceivedDate: date("compensation_received_date"),
+    compensationPayerName: varchar("compensation_payer_name", { length: 191 }),
+    governmentPolicyType: varchar("government_policy_type", { length: 64 }),
+    governmentInstitutionName: varchar("government_institution_name", { length: 191 }),
+    governmentLetterNumber: varchar("government_letter_number", { length: 100 }),
+    governmentLetterDate: date("government_letter_date"),
+    affectedAssetPortion: varchar("affected_asset_portion", { length: 32 }),
+    affectedAreaOrQuantity: text("affected_area_or_quantity"),
+    affectedValue: bigint("affected_value", { mode: "number" }),
+    hasGovernmentCompensation: boolean("has_government_compensation").notNull().default(false),
+    governmentCompensationAmount: bigint("government_compensation_amount", { mode: "number" }),
+    governmentCompensationReceivedDate: date("government_compensation_received_date"),
+    governmentDocumentFileId: text("government_document_file_id"),
+    forcedEventType: varchar("forced_event_type", { length: 64 }),
+    forcedEventDate: date("forced_event_date"),
+    forcedEventChronology: text("forced_event_chronology"),
+    damageLevel: varchar("damage_level", { length: 64 }),
+    photoDocumentationFileIds: jsonb("photo_documentation_file_ids").$type<string[]>(),
+    inspectionReportFileId: text("inspection_report_file_id"),
+    hasInsuranceClaim: boolean("has_insurance_claim").notNull().default(false),
+    insuranceClaimAmount: bigint("insurance_claim_amount", { mode: "number" }),
+    insuranceClaimReceivedDate: date("insurance_claim_received_date"),
+    physicalInspectionFileId: text("physical_inspection_file_id"),
+    deletionMinutesFileId: text("deletion_minutes_file_id"),
+    parishPriestMemoFileId: text("parish_priest_memo_file_id"),
+    bishopApprovalFileId: text("bishop_approval_file_id"),
+    bishopApprovalNumber: varchar("bishop_approval_number", { length: 100 }),
+    bishopApprovalDate: date("bishop_approval_date"),
+    additionalAttachmentFileIds: jsonb("additional_attachment_file_ids").$type<string[]>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("asset_disposals_asset_idx").on(table.assetId),
+    index("asset_disposals_status_idx").on(table.status),
+    index("asset_disposals_effective_date_idx").on(table.effectiveDisposalDate),
+  ]
+);
+
+export const assetStatusHistories = pgTable(
+  "asset_status_histories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "cascade" }),
+    previousStatus: varchar("previous_status", { length: 32 }),
+    newStatus: varchar("new_status", { length: 32 }).notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    source: varchar("source", { length: 32 }).notNull(),
+    relatedEntityType: varchar("related_entity_type", { length: 32 }),
+    relatedEntityId: uuid("related_entity_id").references(() => assetDisposals.id, { onDelete: "set null" }),
+    notes: text("notes"),
+  },
+  (table) => [
+    index("asset_status_histories_asset_recorded_idx").on(table.assetId, table.recordedAt),
+    check(
+      "asset_status_histories_source_check",
+      sql`${table.source} in ('manual', 'disposal_start', 'disposal_complete', 'disposal_cancel', 'disposal_reject', 'system')`
+    ),
+  ]
+);
+
+export const assetConditionHistories = pgTable(
+  "asset_condition_histories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "cascade" }),
+    previousCondition: varchar("previous_condition", { length: 64 }),
+    newCondition: varchar("new_condition", { length: 64 }),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    source: varchar("source", { length: 32 }).notNull(),
+    relatedEntityType: varchar("related_entity_type", { length: 32 }),
+    relatedEntityId: uuid("related_entity_id").references(() => assetDisposals.id, { onDelete: "set null" }),
+    notes: text("notes"),
+  },
+  (table) => [
+    index("asset_condition_histories_asset_recorded_idx").on(table.assetId, table.recordedAt),
+    check(
+      "asset_condition_histories_source_check",
+      sql`${table.source} in ('manual', 'disposal_start', 'disposal_complete', 'disposal_cancel', 'disposal_reject', 'system')`
+    ),
+  ]
+);
+
+export const assetLoanHistories = pgTable(
+  "asset_loan_histories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "cascade" }),
+    previousLoanedTo: varchar("previous_loaned_to", { length: 191 }),
+    newLoanedTo: varchar("new_loaned_to", { length: 191 }),
+    eventType: varchar("event_type", { length: 32 }).notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    source: varchar("source", { length: 32 }).notNull(),
+    notes: text("notes"),
+  },
+  (table) => [
+    index("asset_loan_histories_asset_recorded_idx").on(table.assetId, table.recordedAt),
+    check(
+      "asset_loan_histories_source_check",
+      sql`${table.source} in ('manual', 'disposal_start', 'disposal_complete', 'disposal_cancel', 'disposal_reject', 'system')`
+    ),
+    check(
+      "asset_loan_histories_event_type_check",
+      sql`${table.eventType} in ('loan_start', 'loan_update', 'loan_end')`
+    ),
+  ]
+);
+
+export const assetPlacementHistories = pgTable(
+  "asset_placement_histories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "cascade" }),
+    previousUnitId: uuid("previous_unit_id").references(() => units.id, { onDelete: "set null" }),
+    newUnitId: uuid("new_unit_id").references(() => units.id, { onDelete: "set null" }),
+    previousLocationId: uuid("previous_location_id").references(() => assetLocations.id, { onDelete: "set null" }),
+    newLocationId: uuid("new_location_id").references(() => assetLocations.id, { onDelete: "set null" }),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+    recordedByUserId: uuid("recorded_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    source: varchar("source", { length: 32 }).notNull(),
+    relatedEntityType: varchar("related_entity_type", { length: 32 }),
+    relatedEntityId: uuid("related_entity_id").references(() => assetDisposals.id, { onDelete: "set null" }),
+    notes: text("notes"),
+  },
+  (table) => [
+    index("asset_placement_histories_asset_recorded_idx").on(table.assetId, table.recordedAt),
+    check(
+      "asset_placement_histories_source_check",
+      sql`${table.source} in ('manual', 'donation_internal', 'system')`
+    ),
   ]
 );
 
@@ -222,6 +523,7 @@ export const assetLandDetails = pgTable(
     boundarySouth: text("boundary_south"),
     boundaryEast: text("boundary_east"),
     boundaryWest: text("boundary_west"),
+    boundaryPatokCoordinates: jsonb("boundary_patok_coordinates"),
     latitude: numeric("latitude", { precision: 10, scale: 7 }),
     longitude: numeric("longitude", { precision: 10, scale: 7 }),
     landUse: varchar("land_use", { length: 128 }),
@@ -239,6 +541,7 @@ export const assetBuildingDetails = pgTable(
       .references(() => assets.id, { onDelete: "cascade" })
       .primaryKey(),
     address: text("address"),
+    buildingCategory: varchar("building_category", { length: 32 }),
     buildingType: varchar("building_type", { length: 128 }),
     mainLandAssetId: uuid("main_land_asset_id").references(() => assets.id, { onDelete: "set null" }),
     acquisitionMethod: varchar("acquisition_method", { length: 128 }),
@@ -258,10 +561,16 @@ export const assetBuildingDetails = pgTable(
     slfIssuedAt: date("slf_issued_at"),
     slfExpiredAt: date("slf_expired_at"),
     leaseAgreementDocument: text("lease_agreement_document"),
+    rentAmount: numeric("rent_amount", { precision: 18, scale: 2 }),
+    njopValue: numeric("njop_value", { precision: 18, scale: 2 }),
+    appraisalValue: numeric("appraisal_value", { precision: 18, scale: 2 }),
     electricityCapacity: varchar("electricity_capacity", { length: 64 }),
     waterSource: varchar("water_source", { length: 64 }),
     parkingCapacity: varchar("parking_capacity", { length: 64 }),
     facilities: text("facilities"),
+    maintenanceResponsibleName: varchar("maintenance_responsible_name", { length: 191 }),
+    maintenanceAnnualCost: numeric("maintenance_annual_cost", { precision: 18, scale: 2 }),
+    physicalCondition: text("physical_condition"),
     latitude: numeric("latitude", { precision: 10, scale: 7 }),
     longitude: numeric("longitude", { precision: 10, scale: 7 }),
     notes: text("notes"),

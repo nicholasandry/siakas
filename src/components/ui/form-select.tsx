@@ -2,24 +2,26 @@
 
 import { useState, type ReactNode } from "react";
 
+import { FormFieldError } from "@/components/ui/form-field-error";
+import { FieldHelper, RequiredMark } from "@/components/ui/form-ux";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
-import { cn } from "@/lib/utils";
 
 export const FORM_SELECT_SEARCHABLE_THRESHOLD = 4;
-
-const nativeSelectClassName =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
 
 type FormSelectProps = {
   name: string;
   label?: ReactNode;
   options: SearchableSelectOption[];
   defaultValue?: string | number | null;
+  value?: string;
+  onChange?: (value: string) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   required?: boolean;
   disabled?: boolean;
   emptyMessage?: string;
+  helperText?: ReactNode;
+  error?: string | null;
   className?: string;
   labelClassName?: string;
   includeEmptyOption?: boolean;
@@ -31,21 +33,30 @@ export function FormSelect({
   label,
   options,
   defaultValue = "",
+  value: controlledValue,
+  onChange,
   placeholder = "Pilih",
   searchPlaceholder,
   required = false,
   disabled = false,
   emptyMessage = "Tidak ada opsi ditemukan",
+  helperText,
+  error,
   className,
   labelClassName = "space-y-2 text-sm font-medium text-slate-700",
   includeEmptyOption = true,
   emptyOptionLabel,
 }: FormSelectProps) {
   const initialValue = defaultValue == null ? "" : String(defaultValue);
-  const [value, setValue] = useState(initialValue);
-  const useSearchable = options.length > FORM_SELECT_SEARCHABLE_THRESHOLD;
-
-  const field = useSearchable ? (
+  const [internalValue, setInternalValue] = useState(initialValue);
+  const value = controlledValue ?? internalValue;
+  const setValue = (nextValue: string) => {
+    if (controlledValue === undefined) {
+      setInternalValue(nextValue);
+    }
+    onChange?.(nextValue);
+  };
+  const field = (
     <SearchableSelect
       name={name}
       value={value}
@@ -62,21 +73,6 @@ export function FormSelect({
       emptyMessage={emptyMessage}
       className={className}
     />
-  ) : (
-    <select
-      name={name}
-      defaultValue={initialValue}
-      className={cn(nativeSelectClassName, className)}
-      required={required}
-      disabled={disabled}
-    >
-      {includeEmptyOption ? <option value="">{emptyOptionLabel ?? placeholder}</option> : null}
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
   );
 
   if (!label) {
@@ -85,8 +81,10 @@ export function FormSelect({
 
   return (
     <label className={labelClassName}>
-      <span>{label}</span>
+      <span>{label} {required ? <RequiredMark /> : null}</span>
       {field}
+      <FieldHelper>{helperText}</FieldHelper>
+      <FormFieldError message={error} />
     </label>
   );
 }
@@ -105,8 +103,8 @@ export function pairsToSelectOptions(options: ReadonlyArray<string[] | readonly 
 }
 
 export function lookupToSelectOptions(
-  items: Array<{ id: string; name: string; code?: string; email?: string; assetType?: string }>,
-  formatLabel?: (item: { id: string; name: string; code?: string; email?: string; assetType?: string }) => string
+  items: Array<{ id: string; name: string; code?: string | null; email?: string; assetType?: string; unitName?: string | null; unitCode?: string | null }>,
+  formatLabel?: (item: { id: string; name: string; code?: string | null; email?: string; assetType?: string; unitName?: string | null; unitCode?: string | null }) => string
 ): SearchableSelectOption[] {
   return [...items]
     .map((item) => {
@@ -119,7 +117,7 @@ export function lookupToSelectOptions(
       return {
         value: item.id,
         label,
-        searchText: `${item.id} ${item.code ?? ""} ${item.name} ${item.email ?? ""} ${item.assetType ?? ""}`,
+        searchText: `${item.id} ${item.code ?? ""} ${item.name} ${item.email ?? ""} ${item.assetType ?? ""} ${item.unitName ?? ""} ${item.unitCode ?? ""}`,
       };
     })
     .sort((a, b) => a.label.localeCompare(b.label, "id"));

@@ -21,7 +21,7 @@ export function CreateRbacUserDialog({ action, roleOptions, unitOptions, badanHu
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-slate-950 px-6 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-800"
       >
         <Plus className="h-4 w-4" />
         Tambah pengguna

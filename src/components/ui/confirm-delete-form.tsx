@@ -1,6 +1,8 @@
 "use client";
 
-import type { FormEvent, ReactNode } from "react";
+import { useRef, type FormEvent, type ReactNode } from "react";
+
+import { Swal } from "@/lib/swal";
 
 type ConfirmDeleteFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -10,9 +12,28 @@ type ConfirmDeleteFormProps = {
 };
 
 export function ConfirmDeleteForm({ action, confirmMessage, children, className }: ConfirmDeleteFormProps) {
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    if (!window.confirm(confirmMessage)) {
-      event.preventDefault();
+  const confirmedRef = useRef(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (confirmedRef.current) {
+      confirmedRef.current = false;
+      return;
+    }
+
+    event.preventDefault();
+    const result = await Swal.fire({
+      title: "Konfirmasi hapus",
+      text: confirmMessage,
+      icon: "warning",
+      showCancelButton: true,
+      cancelButtonText: "Batal",
+      confirmButtonText: "Hapus",
+      confirmButtonColor: "#be123c",
+    });
+
+    if (result.isConfirmed) {
+      confirmedRef.current = true;
+      event.currentTarget.requestSubmit();
     }
   }
 
